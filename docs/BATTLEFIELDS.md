@@ -24,7 +24,7 @@ Read from the game's own code and data, v1.4.8.119303.
 - There are 98 `battle_terrain_*` scenes. So the map is covered by reusing them. TaleWorlds said publicly that Bannerlord
   has no randomly generated battle scenes, unlike Warband.
 - `SceneModel` is a replaceable game model. A mod can return any scene name from it. **This is the hook: no engine patch
-  is needed to send a battle to our own scene.**
+  is needed to send a battle to a custom scene.**
 
 Sizes, from the files:
 | | World map | One battlefield |
@@ -290,7 +290,7 @@ F0 to F2 need no new format work and can start now.
 
 ## Sources
 
-- Game files and decompiled managed assemblies of the owner's install (scene model, map scene interface, scene files).
+- Game files and decompiled managed assemblies of a retail install (scene model, map scene interface, scene files).
 - [TaleWorlds on the battle terrain system](https://www.thegamer.com/mount-blade-2-bannerlord-new-multiplayer-duel-mode-battle-terrain-system/),
   [development update](https://gamebanshee.com/xdk3d), [Future Plans](https://www.gamebanshee.com/aywyd),
   [developer Q&A stating there are no random battle scenes](https://gamebanshee.com/k48fk)
