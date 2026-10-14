@@ -254,7 +254,7 @@ offers is a line the armies may really stand on: only clean bearings are offered
 offer only bearings near their axis.
 
 **The generator in C#** (`mod/GenFields/src/gen`: Core, Rocks, Data, Files, Generator; 1,600 lines, no engine calls).
-Same steps as `procgen.py`. Per field on my machine, all thirty biome and layout combinations: 1.25 to 1.81 s.
+Same steps as `procgen.py`. Per field on an Intel Core i5-12600KF, all thirty biome and layout combinations: 1.25 to 1.81 s.
 A typical run in milliseconds: landforms 80, warp and frame 80, relief 10, fluvial erosion 175, thermal 25, grain 80,
 shaping 45, rock spots 90, rocks 195, paint 195, forest 60, packing 60, terrain.bin 160, navmesh 270, scene text 45.
 The Python reference took 40 s for the same field under the profiler: 9 s in its pure-Python LZ4, 8 s in noise, 7.5 s

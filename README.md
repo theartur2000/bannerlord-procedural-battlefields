@@ -1,10 +1,11 @@
 # Procedural Battlefields
 
-A Bannerlord mod that makes a new battle map for every field battle in the campaign.
+Procedural Battlefields is a mod for Mount & Blade II: Bannerlord that generates a new battle map for every field
+battle in the campaign.
 
-When a battle starts, the mod looks at the campaign map around your party: plains, steppe or desert, how many
-mountains and trees are nearby, whether there is a river or a coast. Then it builds a map to match while the loading
-screen is up. That takes about 2 seconds on my PC. You never fight on the same map twice.
+When a battle starts, the mod reads the campaign map around the player's party (biome, mountains, forest, rivers,
+coast) and generates a matching map during the loading screen: terrain, rocks, vegetation, navigation mesh and spawn
+positions. Generation takes 1.3 to 2.0 seconds on an Intel Core i5-12600KF.
 
 ![A generated valley](docs/images/valley.jpg)
 
@@ -13,136 +14,146 @@ screen is up. That takes about 2 seconds on my PC. You never fight on the same m
 | ![Steppe](docs/images/steppe.jpg) | ![River crossing](docs/images/crossing.jpg) |
 | ![Mountain shelf in winter](docs/images/snow.jpg) | ![Desert](docs/images/desert.jpg) |
 
-What I'm going for is battles that stay fresh and where the ground matters: cavalry should love the open steppe and
-hate a mountain pass. It's not there yet (see "What's missing"), but the maps already generate and play.
+> [!NOTE]
+> Procedural Battlefields is in early development. It is tested on Bannerlord v1.4.8 only, there is no packaged
+> release yet, and it is not on the Steam Workshop. For now it has to be built from source.
 
-## Status
+## Features
 
-Early. It works in my own campaign tests on Bannerlord v1.4.8, and I have not tried any other version. There is no
-download yet, so for now you build it from source. It is not on the Steam Workshop.
-
-## What you get
-
-- Ten kinds of map: ridge, valley, hill, river crossing, forest clearing, mountain pass, coastal bluff, broken ground,
-  desert mesas, and a mountain shelf with a drop you can fall off.
-- Terrain shaped with noise and erosion, so it reads as land and not as random bumps.
-- Rocks, trees, grass and bushes from the game's own maps, placed the way those maps place them. Rocks are fitted to
-  the ground from their real 3D shape so they don't float.
-- Navmesh, spawn lines and AI markers, so the armies deploy and fight like on any other map.
-- Snow in winter.
-
-## What's missing
-
-- Only plains, steppe and desert have their own look. Everywhere else, including the snowy north, gets a plains map,
-  and snow only shows up in winter. A proper harsh north is the next thing I want.
-- I haven't tested night battles, rain, or big battles with reinforcement waves.
-- I haven't checked how fair the two starting positions are.
-- In steep valleys a few rocks still end up partly buried in the hillside.
-- The game keeps a map's files locked until you quit, so the mod can make 60 new maps per biome per session. After
-  that it falls back to the game's own maps until you restart.
-- Sieges, villages, hideouts and sea battles are untouched.
+- **Ten map layouts**: ridge, valley, hill, river crossing, forest clearing, mountain pass, coastal bluff, broken
+  ground, desert mesas, and a mountain shelf with a lethal drop.
+- **Natural terrain**: layered noise, domain warping, and fluvial and thermal erosion.
+- **Native assets**: rocks, trees, grass and bushes from the game's own battle maps, placed and painted the way
+  those maps do it. Rocks are fitted to the terrain from their actual mesh geometry.
+- **Battle-ready**: navigation mesh, spawn paths, map border, and tactical markers for the AI.
+- **Seasons**: snow cover in winter.
+- **Custom asset support**: the generator can build a map from third-party models and textures only (see
+  [Custom assets](#custom-assets)).
+- **No dependencies**: no Harmony or other mods required. Nothing is stored in save games, so the mod can be added
+  to or removed from an existing campaign.
 
 ## Requirements
 
-To play: Bannerlord v1.4.8, nothing else. No Harmony, no other mods. It doesn't touch your saves, so you can add or
-remove it in the middle of a campaign.
+| | |
+|---|---|
+| To play | Mount & Blade II: Bannerlord v1.4.8 (Windows, single player) |
+| To build | Python 3.10 or later, the .NET SDK, and an installed copy of the game |
+| Disk space | about 250 MB installed |
 
-To build: Windows, Python 3.10+, the .NET SDK, and the game installed.
-
-## Build and install
+## Installation
 
 ```powershell
 git clone --recursive https://github.com/theartur2000/bannerlord-procedural-battlefields
 cd bannerlord-procedural-battlefields
 pip install -r requirements.txt
-$env:BANNERLORD_DIR = "<your game folder>"       # skip this if the game is in the default Steam folder
+$env:BANNERLORD_DIR = "<game folder>"             # not needed for the default Steam location
 
 dotnet build mod/GenFields/src/GenFields.csproj -c Release -p:BannerlordDir="$env:BANNERLORD_DIR" -o build
-python tools/livedata.py                          # once, takes a few minutes
-python tools/install.py --dll build --live        # with the game closed
+python tools/livedata.py                          # one-time data export, takes a few minutes
+python tools/install.py --dll build --live        # the game must be closed
 ```
 
-Then tick "GenFields" in the launcher.
+Enable **GenFields** in the Bannerlord launcher.
 
-`livedata.py` reads rock shapes and ground textures out of your own game install. That is why there are no game
-files in this repo, and why you have to run it once yourself.
+`livedata.py` exports the data the generator needs (rock shapes, ground layer statistics, terrain samples) from the
+local game install. This repository contains no game content.
 
-To uninstall: `python tools/install.py --remove`. The installer only ever writes inside `Modules\GenFields`. It takes
-about 250 MB.
+To uninstall, run `python tools/install.py --remove`. The installer writes only inside `Modules\GenFields`.
 
-## While playing
+## Usage
 
-When a battle starts on a generated map, the mod prints which kind of map it is. If you see something broken, stand
-on it and press F10: that saves your position and a screenshot, which makes it easy to find and fix.
+The mod works automatically in campaign field battles on land. Sieges, villages, hideouts and naval battles use the
+game's own scenes.
 
-To switch the mod off without uninstalling, put an empty file called `genfields_nolive.txt` in `Modules\GenFields`.
-The log is `genfields_log.txt` in the same folder.
-
-## How it works
-
-The game asks its "scene model" which map to load for a battle. The mod wraps that model. For a land battle it reads
-the terrain types around your party, turns them into a few numbers (biome, ruggedness, forest, water), picks a kind
-of map, generates it, and hands the game the name of the new scene. Everything else is passed through to the game.
-
-The generator is plain C# with no engine calls (`mod/GenFields/src/gen`). It writes the three files a Bannerlord
-scene needs: `scene.xscene`, `terrain.bin` and `navmesh.bin`.
-
-Two things about the engine made this harder than it sounds:
-
-- A scene folder has to exist when the game starts, or the game won't load it. Empty files are enough, though.
-- Once a scene has been loaded, the game keeps its `terrain.bin` open until you quit.
-
-So the mod ships 64 scene folders per biome, most of them empty, and fills a fresh one for each battle. They get
-emptied again the next time you start the game.
-
-I first wrote the generator in Python (`tools/procgen.py`), where a map took 20 to 40 seconds. The C# version does
-the same steps in under 2 seconds. Most of that came from running loops in parallel, preparing data ahead of time,
-and replacing a few slow operations with cheaper ones. `mod/GenFields/gen_cli` builds the generator as a command-line
-program that prints how long each step takes.
-
-The full story, with every measurement and dead end, is in [docs/BATTLEFIELDS.md](docs/BATTLEFIELDS.md).
-
-## The tools
-
-These are Python scripts built on my [Bannerlord editor-free SDK](https://github.com/theartur2000/bannerlord-editor-free-sdk),
-which is included as a submodule. Run any of them with `-h` for the options.
-
-| script | what it does |
+| Action | How |
 |---|---|
-| `tools/procgen.py` | the Python generator: makes one map from settings like `--biome --kind --rugged --forest --seed`, with a top-down preview |
-| `tools/livedata.py` | pulls the data the in-game generator needs out of your install |
-| `tools/install.py` | installs or removes the mod, and can add single test maps |
-| `tools/pool.py` | pre-generates 24 maps the mod can fall back on |
-| `tools/fieldmap.py` | draws a top-down picture of any Bannerlord battle map |
-| `tools/lineup.py` | makes a test map with every rock of a biome standing in a row |
-| `tools/generate.py` | my first attempt, kept for reference: cuts the map out of the campaign map's own heights |
-| `tools/test.ps1` | starts the game by itself, runs a battle on a map, takes screenshots and quits |
-| `tools/bl2field.py` | see below |
+| Report a problem spot | Press **F10** in battle. The position and a screenshot are saved. |
+| Disable generation | Create an empty file `genfields_nolive.txt` in `Modules\GenFields`. |
+| Read the log | `Modules\GenFields\genfields_log.txt` |
 
-To make one map by hand and try it in Custom Battle:
+A single map can also be generated offline and played in Custom Battle:
 
 ```powershell
 python tools/procgen.py --biome Plain --kind valley --rugged 0.8 --forest 0.25 --seed 311 --name my_valley --preview my_valley.png
 python tools/install.py --dll build --scene my_valley
 ```
 
-If you change how maps look, change both generators. The Python one is easier to experiment in.
+## Known limitations
 
-## A map made from another game's assets
+- Only plains, steppe and desert have dedicated data. Other regions, including the snowy north, currently generate
+  as plains, and snow appears only in winter.
+- Night battles, rain, and large battles with reinforcement waves are untested.
+- The fairness of the two starting positions has not been measured.
+- In steep valleys, some rocks are partly buried in the hillside.
+- The engine keeps a loaded scene's terrain file open until the game exits. The mod can therefore generate about 60
+  maps per biome per session; after that it uses the game's own scenes until the game is restarted.
 
-The generator doesn't care where its rocks and textures come from. `tools/bl2field.py` builds a map using only
-Borderlands 2 models and textures, with nothing from Bannerlord on it. You need your own copy of Borderlands 2 and a
-umodel export of it. None of those files are in this repo.
+## How it works
+
+The mod wraps the campaign's `SceneModel`, which the game queries for the scene of each battle. For a land battle it
+samples the terrain types around the party, derives a set of rules (biome, ruggedness, forest cover, water), selects
+a layout, generates the map, and returns the name of the generated scene. All other queries are passed through.
+
+The generator (`mod/GenFields/src/gen`) is plain C# with no engine calls. It writes the three files that make up a
+Bannerlord scene: `scene.xscene`, `terrain.bin` and `navmesh.bin`.
+
+Two engine constraints shape the design:
+
+- A scene folder must exist when the game starts, although its files may be empty.
+- Once a scene has been loaded, its `terrain.bin` stays open until the game exits.
+
+The module therefore ships 64 scene folders per biome, most of them empty placeholders, and writes each new map into
+an unused one. Used placeholders are cleared at the next start.
+
+A Python reference implementation (`tools/procgen.py`) performs the same steps in 20 to 40 seconds and is easier to
+experiment with. Changes to map generation should be made in both. `mod/GenFields/gen_cli` builds the C# generator
+as a command-line program that reports the time taken by each step.
+
+The design, measurements and engine findings are documented in [docs/BATTLEFIELDS.md](docs/BATTLEFIELDS.md).
+
+## Tools
+
+The Python tools are built on the
+[Bannerlord Editor-Free SDK](https://github.com/theartur2000/bannerlord-editor-free-sdk), included as a submodule.
+Each tool lists its options with `-h`.
+
+| Script | Description |
+|---|---|
+| `tools/procgen.py` | Reference generator. Creates one map from rules or from a campaign map position, with a top-down preview. |
+| `tools/livedata.py` | Exports the data the in-game generator needs from the local install. |
+| `tools/install.py` | Installs or removes the module, single maps, the fallback pool and custom assets. |
+| `tools/pool.py` | Pre-generates 24 fallback maps. |
+| `tools/fieldmap.py` | Renders a top-down view of any Bannerlord battle scene. |
+| `tools/lineup.py` | Creates a test scene showing every rock of a biome. |
+| `tools/generate.py` | Earlier approach, kept for reference: cuts a map from the campaign map's own heights. |
+| `tools/test.ps1` | Runs an unattended battle on a map, captures screenshots and exits. |
+| `tools/bl2field.py` | Builds a map from custom assets only. |
+
+## Custom assets
+
+The generator accepts a palette of third-party ground textures, rocks and plants. `tools/bl2field.py` is a worked
+example that builds a map exclusively from Borderlands 2 models and textures, read from a umodel export of a
+user-owned copy of that game. None of those assets are included in this repository.
 
 ![A map built only from Borderlands 2 assets](docs/images/bl2field.jpg)
 
-## Credits
+## Repository layout
 
-- TaleWorlds made Bannerlord. The game and everything in it is theirs.
-- The erosion is the stream-power method from Braun and Willett (2013). The talks and articles I learned from are
-  listed at the end of [docs/BATTLEFIELDS.md](docs/BATTLEFIELDS.md).
-- I built this with Claude Code. I do the design and the playtesting, and it writes most of the code.
+```
+mod/GenFields/      the module: SubModule.xml, C# source, the generator (src/gen), the command-line build (gen_cli)
+tools/              Python generator, install and test scripts
+docs/               design document and images
+sdk/                Bannerlord Editor-Free SDK (git submodule)
+```
+
+## Acknowledgements
+
+- Mount & Blade II: Bannerlord is developed by TaleWorlds Entertainment. This project is not affiliated with or
+  endorsed by TaleWorlds.
+- The fluvial erosion uses the implicit stream-power method of Braun and Willett (2013). Further references are
+  listed in [docs/BATTLEFIELDS.md](docs/BATTLEFIELDS.md).
+- Developed with Claude Code.
 
 ## License
 
-MIT.
+Procedural Battlefields is released under the [MIT License](LICENSE).
